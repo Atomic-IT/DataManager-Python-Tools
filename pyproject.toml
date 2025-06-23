@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Python tools for Data Manager"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = [
-    "fastapi>=0.115.13",
-]
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic.dependencies]
+file = "requirements.txt"
