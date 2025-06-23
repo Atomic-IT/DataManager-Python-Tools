@@ -16,7 +16,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@v4
       with:
-        images: ghcr.io/${{ github.repository_owner }}/${{ github.repository_name }}
+        images: ghcr.io/${{ github.repository }}
         tags: type=ref,event=branch
     - name: Login to GHCR
       uses: docker/login-action@v2
