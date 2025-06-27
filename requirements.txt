@@ -1,1 +1,6 @@
 fastapi[standard]>=0.115.13
+python-multipart
+pandas
+python-docx
+odfpy
+tabula-py
