@@ -1,42 +1,11 @@
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI, Response, UploadFile
 from enum import Enum
-from pandas import DataFrame
+from pandas import DataFrame, concat, read_csv, read_json, read_xml
 from typing import Callable
 from docx import Document
 from odf.opendocument import OpenDocumentText
 from odf.table import Table, TableRow, TableCell
 import tabula
-
-
-def from_odt(file):
-    # Load the ODT document
-    doc = OpenDocumentText(file)
-
-    # Iterate through the tables in the document
-    for table in doc.getElementsByType(Table):
-        for row in table.getElementsByType(TableRow):
-            # Extract text from each cell in the row
-            row_data = []
-            for cell in row.getElementsByType(TableCell):
-                # Get the text content of the cell
-                cell_text = "".join(
-                    node.data
-                    for node in cell.childNodes
-                    if node.nodeType == node.TEXT_NODE
-                )
-                row_data.append(cell_text)
-            print(row_data)  # Print or process the row data as needed
-
-
-def from_pdf(file_path):
-    # Read tables from the PDF file
-    tables = tabula.read_pdf(file_path, pages="all", multiple_tables=True)
-
-    # Iterate through the extracted tables
-    for i, table in enumerate(tables):
-        print(f"Table {i + 1}:")
-        print(table)  # Print or process the table as needed
-
 
 app = FastAPI()
 
@@ -45,7 +14,6 @@ class Formats(Enum):
     CSV = "csv"
     XML = "xml"
     JSON = "json"
-    PDF = "pdf"
 
 
 class ValidExtensions(Enum):
@@ -58,22 +26,76 @@ class ValidExtensions(Enum):
     ODT = "odt"
 
 
-FUNCTIONS: dict[Formats, Callable[[DataFrame], str]] = {
-    Formats.CSV: lambda x: x.to_csv(),
-    Formats.JSON: lambda x: x.to_json(),
-    Formats.XML: lambda x: x.to_xml(),
+FUNCTIONS: dict[Formats, Callable[[DataFrame], Response]] = {
+    Formats.CSV: lambda df: Response(
+        content=df.to_csv(index=False), media_type="text/csv"
+    ),
+    Formats.JSON: lambda df: Response(
+        content=df.to_json(orient="records"), media_type="application/json"
+    ),
+    Formats.XML: lambda df: Response(
+        content=df.to_xml(index=False), media_type="application/xml"
+    ),
 }
 
 
-def from_docx(file):
-    # Load the document
-    doc = Document(file)
+def from_odt(file) -> DataFrame:
+    """
+    Extracts tables from an ODT file and returns a concatenated DataFrame.
+    """
+    doc = OpenDocumentText(file)
+    dfs = []
+    for table in doc.getElementsByType(Table):
+        data = []
+        for row in table.getElementsByType(TableRow):
+            row_data = []
+            for cell in row.getElementsByType(TableCell):
+                cell_text = "".join(
+                    node.data
+                    for node in cell.childNodes
+                    if node.nodeType == node.TEXT_NODE
+                )
+                row_data.append(cell_text)
+            data.append(row_data)
+        if data:
+            header = data[0]
+            df = DataFrame(data[1:], columns=header)
+            dfs.append(df)
+    if not dfs:
+        return DataFrame()
+    return concat(dfs, ignore_index=True)
 
-    # Iterate through the tables in the document
+
+def from_pdf(file_path: str) -> DataFrame:
+    """
+    Extracts tables from a PDF file and returns a concatenated DataFrame.
+    """
+    try:
+        tables = tabula.read_pdf(file_path, pages="all", multiple_tables=True)
+    except Exception:
+        return DataFrame()
+    if not tables:
+        return DataFrame()
+    return concat(tables, ignore_index=True)
+
+
+def from_docx(file) -> DataFrame:
+    """
+    Extracts tables from a DOCX file and returns a concatenated DataFrame.
+    """
+    doc = Document(file)
+    dfs = []
     for table in doc.tables:
+        data = []
         for row in table.rows:
-            # Extract text from each cell in the row
-            row_data = [cell.text for cell in row.cells]
+            data.append([cell.text for cell in row.cells])
+        if data:
+            header = data[0]
+            df = DataFrame(data[1:], columns=header)
+            dfs.append(df)
+    if not dfs:
+        return DataFrame()
+    return concat(dfs, ignore_index=True)
 
 
 @app.post("/")
@@ -87,17 +109,35 @@ def transform(format: Formats, file: UploadFile):
     file:
         File to transform. Requires valid extension
     """
-    extension = file.filename.split(".")[-1]
-    if extension in {"csv", "xml", "json"}:
-        data = file.file.readlines()
-        df = DataFrame(data[1:], columns=data[0])
-    elif extension in {"docx"}:
-        df = from_docx(file.file)
-    elif extension in {"odt"}:
-        df = from_odt(file.file)
-    elif extension in {"pdf"}:
-        df = from_pdf(file.file)
-    elif extension in {"doc"}:
-        return "ERROR: Not yet supported"
+    extension = file.filename.split(".")[-1] if file.filename else ""
 
-    return FUNCTIONS.get(format, lambda x: 404)(df)
+    if extension == "csv":
+        df = read_csv(file.file)
+    elif extension == "xml":
+        df = read_xml(file.file)
+    elif extension == "json":
+        df = read_json(file.file)
+    elif extension == "docx":
+        df = from_docx(file.file)
+    elif extension == "odt":
+        df = from_odt(file.file)
+    elif extension == "pdf":
+        df = from_pdf(file.file)
+    elif extension == "doc":
+        return Response(
+            content="ERROR: .doc format is not supported for in-memory structured data extraction without external tools.",
+            status_code=400,
+        )
+    else:
+        return Response(
+            content=f"Unsupported file extension: {extension}", status_code=400
+        )
+
+    if df.empty:
+        return Response(content="Could not extract data from file.", status_code=400)
+
+    if func := FUNCTIONS.get(format):
+        return func(df)
+    return Response(
+        content=f"Unsupported output format: {format.value}", status_code=400
+    )
