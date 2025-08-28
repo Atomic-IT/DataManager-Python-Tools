@@ -1,11 +1,12 @@
-from fastapi import FastAPI, Response, UploadFile
 from enum import Enum
-from pandas import DataFrame, concat, read_csv, read_json, read_xml
-from typing import Callable
-from docx import Document
-from odf.opendocument import OpenDocumentText
-from odf.table import Table, TableRow, TableCell
+from typing import BinaryIO, Callable
+
 import tabula
+from docx import Document
+from fastapi import FastAPI, Response, UploadFile
+from odf.opendocument import load
+from odf.table import Table, TableCell, TableRow
+from pandas import DataFrame, concat, read_csv, read_json, read_xml
 
 app = FastAPI()
 
@@ -39,11 +40,11 @@ FUNCTIONS: dict[Formats, Callable[[DataFrame], Response]] = {
 }
 
 
-def from_odt(file) -> DataFrame:
+def from_odt(file: BinaryIO) -> DataFrame:
     """
     Extracts tables from an ODT file and returns a concatenated DataFrame.
     """
-    doc = OpenDocumentText(file)
+    doc = load(file)
     dfs = []
     for table in doc.getElementsByType(Table):
         data = []
@@ -66,7 +67,7 @@ def from_odt(file) -> DataFrame:
     return concat(dfs, ignore_index=True)
 
 
-def from_pdf(file_path: str) -> DataFrame:
+def from_pdf(file_path: BinaryIO) -> DataFrame:
     """
     Extracts tables from a PDF file and returns a concatenated DataFrame.
     """
@@ -79,7 +80,7 @@ def from_pdf(file_path: str) -> DataFrame:
     return concat(tables, ignore_index=True)
 
 
-def from_docx(file) -> DataFrame:
+def from_docx(file: BinaryIO) -> DataFrame:
     """
     Extracts tables from a DOCX file and returns a concatenated DataFrame.
     """
