@@ -29,15 +29,9 @@ class ValidExtensions(Enum):
 
 
 FUNCTIONS: dict[Formats, Callable[[DataFrame], Response]] = {
-    Formats.CSV: lambda df: Response(
-        content=df.to_csv(index=False), media_type="text/csv"
-    ),
-    Formats.JSON: lambda df: Response(
-        content=df.to_json(orient="records"), media_type="application/json"
-    ),
-    Formats.XML: lambda df: Response(
-        content=df.to_xml(index=False), media_type="application/xml"
-    ),
+    Formats.CSV: lambda df: Response(content=df.to_csv(index=False), media_type="text/csv"),
+    Formats.JSON: lambda df: Response(content=df.to_json(orient="records"), media_type="application/json"),
+    Formats.XML: lambda df: Response(content=df.to_xml(index=False), media_type="application/xml")
 }
 
 
@@ -127,15 +121,11 @@ def transform(format: Formats, file: UploadFile):
             status_code=400,
         )
     else:
-        return Response(
-            content=f"Unsupported file extension: {extension}", status_code=400
-        )
+        return Response(content=f"Unsupported file extension: {extension}", status_code=400)
 
     if df.empty:
         return Response(content="Could not extract data from file.", status_code=400)
 
     if func := FUNCTIONS.get(format):
         return func(df)
-    return Response(
-        content=f"Unsupported output format: {format.value}", status_code=400
-    )
+    return Response(content=f"Unsupported output format: {format.value}", status_code=400)
