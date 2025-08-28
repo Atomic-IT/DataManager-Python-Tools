@@ -6,6 +6,7 @@ from docx import Document
 from fastapi import FastAPI, Response, UploadFile
 from odf.opendocument import load
 from odf.table import Table, TableCell, TableRow
+from odf.teletype import extractText
 from pandas import DataFrame, concat, read_csv, read_json, read_xml
 
 app = FastAPI()
@@ -51,11 +52,7 @@ def from_odt(file: BinaryIO) -> DataFrame:
         for row in table.getElementsByType(TableRow):
             row_data = []
             for cell in row.getElementsByType(TableCell):
-                cell_text = "".join(
-                    node.data
-                    for node in cell.childNodes
-                    if node.nodeType == node.TEXT_NODE
-                )
+                cell_text = extractText(cell)
                 row_data.append(cell_text)
             data.append(row_data)
         if data:
