@@ -64,12 +64,12 @@ def from_odt(file: BinaryIO) -> DataFrame:
     return concat(dfs, ignore_index=True)
 
 
-def from_pdf(file_path: BinaryIO) -> DataFrame:
+def from_pdf(file: BinaryIO) -> DataFrame:
     """
     Extracts tables from a PDF file and returns a concatenated DataFrame.
     """
     try:
-        tables = tabula.read_pdf(file_path, pages="all", multiple_tables=True)
+        tables = tabula.read_pdf(file, pages="all", multiple_tables=True)
     except Exception:
         return DataFrame()
     if not tables:
