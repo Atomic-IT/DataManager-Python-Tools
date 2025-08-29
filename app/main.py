@@ -31,7 +31,7 @@ class ValidExtensions(Enum):
 FUNCTIONS: dict[Formats, Callable[[DataFrame], Response]] = {
     Formats.CSV: lambda df: Response(content=df.to_csv(index=False), media_type="text/csv"),
     Formats.JSON: lambda df: Response(content=df.to_json(orient="records"), media_type="application/json"),
-    Formats.XML: lambda df: Response(content=df.to_xml(index=False), media_type="application/xml")
+    Formats.XML: lambda df: Response(content=df.to_xml(index=False), media_type="application/xml"),
 }
 
 
