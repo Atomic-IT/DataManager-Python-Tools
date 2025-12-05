@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import BinaryIO, Callable
 
-import tabula
+#import tabula
 from docx import Document
 from fastapi import FastAPI, Response, UploadFile
 from odf.opendocument import load
@@ -62,6 +62,7 @@ def from_pdf(file: BinaryIO) -> DataFrame:
     """
     Extracts tables from a PDF file and returns a concatenated DataFrame.
     """
+    return "Error"
     try:
         tables = tabula.read_pdf(file, pages="all", multiple_tables=True)
     except Exception:
