@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import BinaryIO, Callable
 
-#import tabula
+import tabula
 from docx import Document
 from fastapi import FastAPI, Response, UploadFile
 from odf.opendocument import load
